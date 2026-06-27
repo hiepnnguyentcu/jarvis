@@ -1,0 +1,29 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+*.egg-info/
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+
+# Node
+node_modules/
+mobile/android/.gradle/
+mobile/android/app/build/
+mobile/ios/build/
+mobile/.expo/
+
+# Env
+.env
+.env.local
+*.env
+
+# Docker
+infra/caddy_data/
+infra/caddy_config/
+
+# IDE
+.vscode/
+.idea/
+*.swp

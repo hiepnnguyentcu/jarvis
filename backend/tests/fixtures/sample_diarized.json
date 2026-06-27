@@ -1,0 +1,70 @@
+{
+  "description": "Mock AssemblyAI streaming payload. Replayed at realtime speed when MOCK_ASSEMBLYAI=true.",
+  "session_id": "mock-session-001",
+  "utterances": [
+    {
+      "type": "FinalTranscript",
+      "speaker": "A",
+      "text": "Hey, how have you been? It's been a while.",
+      "start": 500,
+      "end": 3200,
+      "confidence": 0.97
+    },
+    {
+      "type": "FinalTranscript",
+      "speaker": "B",
+      "text": "I've been great actually. Just got back from Tokyo last week. Amazing trip.",
+      "start": 3800,
+      "end": 7500,
+      "confidence": 0.96
+    },
+    {
+      "type": "FinalTranscript",
+      "speaker": "A",
+      "text": "No way, I've always wanted to go. What were you doing there?",
+      "start": 8000,
+      "end": 11000,
+      "confidence": 0.98
+    },
+    {
+      "type": "FinalTranscript",
+      "speaker": "B",
+      "text": "Work trip mostly, but I managed to squeeze in a few days of sightseeing. The food was incredible. I'm actually thinking of moving there next year.",
+      "start": 11500,
+      "end": 18000,
+      "confidence": 0.95
+    },
+    {
+      "type": "FinalTranscript",
+      "speaker": "A",
+      "text": "That's a big move. What does your company think about that?",
+      "start": 18500,
+      "end": 21000,
+      "confidence": 0.97
+    },
+    {
+      "type": "FinalTranscript",
+      "speaker": "B",
+      "text": "They're actually opening a Tokyo office so the timing is perfect. My wife is on board too which is the main thing. We've been talking about it for months.",
+      "start": 21500,
+      "end": 29000,
+      "confidence": 0.96
+    },
+    {
+      "type": "FinalTranscript",
+      "speaker": "A",
+      "text": "Wow that's exciting. When are you thinking?",
+      "start": 29500,
+      "end": 31500,
+      "confidence": 0.98
+    },
+    {
+      "type": "FinalTranscript",
+      "speaker": "B",
+      "text": "Probably Q2 next year. We need to sort out visas and find a place but it's looking realistic. I'm really excited about it.",
+      "start": 32000,
+      "end": 38000,
+      "confidence": 0.95
+    }
+  ]
+}

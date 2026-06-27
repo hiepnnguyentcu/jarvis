@@ -1,0 +1,55 @@
+# Web framework
+fastapi==0.115.5
+uvicorn[standard]==0.32.1
+websockets==13.1
+python-multipart==0.0.18
+
+# Database
+sqlmodel==0.0.22
+asyncpg==0.30.0
+alembic==1.14.0
+pgvector==0.3.6
+
+# Auth
+python-jose[cryptography]==3.3.0
+passlib[bcrypt]==1.7.4
+bcrypt==4.0.1
+
+# Cache
+redis[asyncio]==5.2.1
+
+# Config
+pydantic-settings==2.6.1
+email-validator==2.2.0
+python-dotenv==1.0.1
+
+# HTTP client
+httpx==0.27.2
+
+# AssemblyAI (streaming transcription)
+assemblyai==0.34.0
+
+# LLM
+anthropic==0.39.0
+
+# Storage
+boto3==1.35.75
+
+# Observability
+sentry-sdk[fastapi]==2.18.0
+
+# Voice identity (speaker embeddings)
+# torch + setuptools installed separately in Dockerfile
+resemblyzer==0.1.1.dev0
+numpy==1.26.4
+scipy==1.13.1
+librosa==0.10.2
+soundfile==0.12.1
+webrtcvad==2.0.10
+
+# Dev / test
+pytest==8.3.3
+pytest-asyncio==0.24.0
+pytest-httpx==0.32.0
+ruff==0.7.4
+mypy==1.13.0
