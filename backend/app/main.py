@@ -1,8 +1,11 @@
+import logging
 from contextlib import asynccontextmanager
 
 import sentry_sdk
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+
+logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(levelname)s %(message)s")
 
 from app.config import settings
 from app.routes import auth, sessions, people

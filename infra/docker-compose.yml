@@ -43,6 +43,7 @@ services:
       ENVIRONMENT: development
     volumes:
       - ../backend:/app
+      - ../voice-sample:/app/voice-sample
     depends_on:
       postgres:
         condition: service_healthy
