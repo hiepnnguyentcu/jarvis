@@ -1,0 +1,33 @@
+name: Jarvis
+options:
+  bundleIdPrefix: com.jarvis
+  deploymentTarget:
+    iOS: "17.0"
+  xcodeVersion: "16.2"
+
+targets:
+  Jarvis:
+    type: application
+    platform: iOS
+    sources:
+      - Jarvis
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.jarvis.app
+        SWIFT_VERSION: "5.9"
+        INFOPLIST_FILE: Jarvis/Info.plist
+        DEVELOPMENT_TEAM: ""
+    info:
+      path: Jarvis/Info.plist
+      properties:
+        CFBundleName: Jarvis
+        CFBundleDisplayName: Jarvis
+        CFBundleVersion: "1"
+        CFBundleShortVersionString: "1.0"
+        UIBackgroundModes:
+          - audio
+        NSMicrophoneUsageDescription: "Jarvis needs the microphone to capture conversations and stream them to the backend."
+        NSCameraUsageDescription: ""
+        UILaunchScreen:
+          UIColorName: ""
+          UIImageName: ""
