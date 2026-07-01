@@ -1,4 +1,5 @@
 import asyncio
+import logging
 import uuid
 from datetime import datetime, timezone
 
@@ -7,6 +8,8 @@ from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
+
+log = logging.getLogger("jarvis.ws")
 from app.db import get_session
 from app.models.session import Segment, Session
 from app.models.user import User
@@ -99,14 +102,11 @@ async def ws_stream(
     async def on_segment(seg: TranscriptSegment) -> None:
         label = seg["speaker_label"]
 
-        # Extract the audio slice for this utterance from the buffer
-        start_byte = seg["start_ms"] * _BYTES_PER_MS
-        end_byte = seg["end_ms"] * _BYTES_PER_MS
-        chunk = bytes(audio_buffer[start_byte:end_byte])
-        if chunk:
-            if label not in speaker_audio:
-                speaker_audio[label] = bytearray()
-            speaker_audio[label] += chunk
+        # Use the full audio buffer accumulated so far for identity resolution.
+        # Timestamp-based slicing is unreliable with the v3 API's synthetic
+        # clock timestamps (they don't map accurately to buffer byte offsets).
+        if audio_buffer:
+            speaker_audio[label] = audio_buffer.copy()
             await _try_resolve(label)
 
         # Resolve role from identity state (may already be known)
@@ -160,6 +160,7 @@ async def ws_stream(
             run_real_transcription(audio_queue, on_segment)
         )
 
+        log.info("WS stream started for session %s", session_id)
         try:
             async for chunk in websocket.iter_bytes():
                 audio_buffer += chunk
@@ -167,11 +168,12 @@ async def ws_stream(
         except WebSocketDisconnect:
             pass
         finally:
+            log.info("WS stream ended — %d bytes received for session %s", len(audio_buffer), session_id)
             await audio_queue.put(None)
             try:
                 await transcription_task
-            except Exception:
-                pass
+            except Exception as e:
+                log.error("Transcription task error: %s", e)
 
         sess.ended_at = datetime.now(timezone.utc).replace(tzinfo=None)
 
