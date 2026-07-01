@@ -1,5 +1,6 @@
 import uuid
 from datetime import datetime
+from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, status
 from pydantic import BaseModel, EmailStr
@@ -9,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.config import settings
 from app.db import get_session
 from app.dependencies import get_current_user
+from app.models.person import Person
 from app.models.user import User, UserVoiceEmbedding
 from app.services.identity import compute_embedding
 from app.services.auth import (
@@ -35,6 +37,8 @@ _MAX_AUDIO_BYTES = 50 * 1024 * 1024  # 50MB
 class RegisterRequest(BaseModel):
     email: EmailStr
     password: str
+    first_name: str = ""
+    last_name: str = ""
 
 
 class LoginRequest(BaseModel):
@@ -55,7 +59,10 @@ class TokenResponse(BaseModel):
 class UserResponse(BaseModel):
     id: uuid.UUID
     email: str
+    first_name: str
+    last_name: str
     voice_enrolled: bool
+    wearer_person_id: Optional[uuid.UUID]
     created_at: datetime
 
 
@@ -67,7 +74,12 @@ async def register(body: RegisterRequest, session: AsyncSession = Depends(get_se
     if existing.scalar_one_or_none():
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Email already registered")
 
-    user = User(email=body.email, hashed_password=hash_password(body.password))
+    user = User(
+        email=body.email,
+        hashed_password=hash_password(body.password),
+        first_name=body.first_name,
+        last_name=body.last_name,
+    )
     session.add(user)
     await session.commit()
     await session.refresh(user)
@@ -106,12 +118,43 @@ async def refresh(body: RefreshRequest):
     )
 
 
+class UpdateProfileRequest(BaseModel):
+    first_name: Optional[str] = None
+    last_name: Optional[str] = None
+
+
+@router.patch("/me", response_model=UserResponse)
+async def update_me(
+    body: UpdateProfileRequest,
+    user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+):
+    if body.first_name is not None:
+        user.first_name = body.first_name
+    if body.last_name is not None:
+        user.last_name = body.last_name
+    session.add(user)
+    await session.commit()
+    return UserResponse(
+        id=user.id,
+        email=user.email,
+        first_name=user.first_name,
+        last_name=user.last_name,
+        voice_enrolled=user.voice_enrolled,
+        wearer_person_id=user.wearer_person_id,
+        created_at=user.created_at,
+    )
+
+
 @router.get("/me", response_model=UserResponse)
 async def me(user: User = Depends(get_current_user)):
     return UserResponse(
         id=user.id,
         email=user.email,
+        first_name=user.first_name,
+        last_name=user.last_name,
         voice_enrolled=user.voice_enrolled,
+        wearer_person_id=user.wearer_person_id,
         created_at=user.created_at,
     )
 
@@ -158,6 +201,24 @@ async def enroll_voice(
         session.add(UserVoiceEmbedding(user_id=user.id, embedding=embedding))
 
     user.voice_enrolled = True
+
+    # Auto-create a Person record for the wearer if not already linked
+    if not user.wearer_person_id:
+        display_name = " ".join(filter(None, [user.first_name, user.last_name])) or user.email.split("@")[0]
+        person = Person(user_id=user.id, name=display_name)
+        session.add(person)
+        await session.flush()
+
+        # Create AGE vertex for the wearer
+        from app.db import cypher
+        safe_name = display_name.replace("'", "\\'")
+        await cypher(
+            session,
+            f"CREATE (:Person {{person_id: '{person.id}', name: '{safe_name}', user_id: '{user.id}'}})",
+        )
+
+        user.wearer_person_id = person.id
+
     session.add(user)
     await session.commit()
 

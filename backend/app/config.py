@@ -32,7 +32,7 @@ class Settings(BaseSettings):
     min_audio_seconds: float = 8.0
     identity_low_confidence: float = 0.80
     identity_high_confidence: float = 0.90
-    wearer_match_threshold: float = 0.88
+    wearer_match_threshold: float = 0.78
 
     # Fact extraction
     fact_max_words_per_chunk: int = 400
