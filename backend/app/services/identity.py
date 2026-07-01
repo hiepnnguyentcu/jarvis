@@ -32,19 +32,38 @@ _encoder = None
 _HAS_RESEMBLYZER = False
 
 try:
-    from resemblyzer import VoiceEncoder, preprocess_wav as _preprocess_wav
+    from resemblyzer import VoiceEncoder
     _encoder = VoiceEncoder()
     _HAS_RESEMBLYZER = True
 except Exception:
     pass
 
 
+def _pcm_to_wav(pcm_bytes: bytes, sample_rate: int = 16000, channels: int = 1, bits: int = 16) -> bytes:
+    """Wrap raw PCM bytes in a minimal RIFF/WAV header."""
+    data_size = len(pcm_bytes)
+    byte_rate = sample_rate * channels * bits // 8
+    block_align = channels * bits // 8
+    header = (
+        b"RIFF" + (36 + data_size).to_bytes(4, "little") +
+        b"WAVE" +
+        b"fmt " + (16).to_bytes(4, "little") +
+        (1).to_bytes(2, "little") +           # PCM
+        channels.to_bytes(2, "little") +
+        sample_rate.to_bytes(4, "little") +
+        byte_rate.to_bytes(4, "little") +
+        block_align.to_bytes(2, "little") +
+        bits.to_bytes(2, "little") +
+        b"data" + data_size.to_bytes(4, "little")
+    )
+    return header + pcm_bytes
+
+
 def _preprocess_and_embed(audio_bytes: bytes) -> list[float]:
     """
     Write bytes to a temp file, preprocess via resemblyzer, compute 256d embedding.
-    Supports WAV, MP3, M4A, OGG — anything ffmpeg can decode.
+    Supports WAV, MP3, M4A, OGG, and raw PCM (16kHz 16-bit mono).
     """
-    suffix = ".wav"
     # Detect format from magic bytes
     if audio_bytes[:4] == b"fLaC":
         suffix = ".flac"
@@ -54,13 +73,22 @@ def _preprocess_and_embed(audio_bytes: bytes) -> list[float]:
         suffix = ".m4a"
     elif audio_bytes[:4] == b"OggS":
         suffix = ".ogg"
+    elif audio_bytes[:4] == b"RIFF":
+        suffix = ".wav"
+    else:
+        # Assume raw PCM (16kHz, 16-bit, mono) — wrap in WAV header
+        audio_bytes = _pcm_to_wav(audio_bytes)
+        suffix = ".wav"
 
     with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as f:
         f.write(audio_bytes)
         tmp_path = f.name
 
     try:
-        wav = _preprocess_wav(tmp_path)
+        import librosa
+        wav, sr = librosa.load(tmp_path, sr=None, mono=True)
+        if sr != 16000:
+            wav = librosa.resample(wav, orig_sr=sr, target_sr=16000)
         return _encoder.embed_utterance(wav).tolist()
     finally:
         import os
@@ -76,13 +104,20 @@ def _mock_embedding(audio_bytes: bytes) -> list[float]:
     return vec.tolist()
 
 
+import logging as _logging
+_log = _logging.getLogger("jarvis.identity")
+
+
 def compute_embedding(audio_bytes: bytes) -> list[float]:
     """256d speaker embedding. Uses resemblyzer when available, mock otherwise."""
     if _HAS_RESEMBLYZER and _encoder is not None:
         try:
-            return _preprocess_and_embed(audio_bytes)
-        except Exception:
-            pass
+            emb = _preprocess_and_embed(audio_bytes)
+            _log.info("compute_embedding: real resemblyzer, %d bytes input", len(audio_bytes))
+            return emb
+        except Exception as e:
+            _log.error("compute_embedding: resemblyzer failed (%s), falling back to mock", e)
+    _log.warning("compute_embedding: using MOCK embedding")
     return _mock_embedding(audio_bytes)
 
 
@@ -153,11 +188,15 @@ async def resolve_speaker(
     uv = result.scalar_one_or_none()
     if uv and uv.embedding is not None:
         sim = cosine_similarity(list(uv.embedding), embedding)
+        _log.info("resolve_speaker: wearer similarity=%.4f (threshold=%.2f)", sim, settings.wearer_match_threshold)
         if sim >= settings.wearer_match_threshold:
             return "wearer", None, sim
+    else:
+        _log.warning("resolve_speaker: no enrolled wearer embedding found")
 
     # Check enrolled people
     person, sim = await match_person(user_id, embedding, db)
+    _log.info("resolve_speaker: best person match similarity=%.4f (threshold=%.2f)", sim, settings.identity_low_confidence)
     if person and sim >= settings.identity_low_confidence:
         return "other", person.id, sim
 
