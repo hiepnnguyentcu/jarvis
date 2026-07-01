@@ -137,13 +137,33 @@ async def extract_graph(
     sess = await db.get(Session, session_id)
     if not sess or sess.user_id != user.id:
         raise HTTPException(status_code=404, detail="Session not found")
-    if not sess.person_id:
-        raise HTTPException(status_code=422, detail="Session has no associated person")
 
-    count = await extract_and_store_for_session(
-        session_id=session_id,
-        person_id=sess.person_id,
-        user_id=user.id,
-        db=db,
-    )
-    return ExtractOut(session_id=session_id, triples_stored=count)
+    if not sess.person_id and not user.wearer_person_id:
+        raise HTTPException(
+            status_code=422,
+            detail="No person linked to this session. Enroll your voice first, or run a session with an identified contact.",
+        )
+
+    total = 0
+
+    # Extract from the other speaker's segments (if a contact was identified)
+    if sess.person_id:
+        total += await extract_and_store_for_session(
+            session_id=session_id,
+            person_id=sess.person_id,
+            user_id=user.id,
+            db=db,
+            speaker_role_filter="other",
+        )
+
+    # Extract from the wearer's own segments
+    if user.wearer_person_id:
+        total += await extract_and_store_for_session(
+            session_id=session_id,
+            person_id=user.wearer_person_id,
+            user_id=user.id,
+            db=db,
+            speaker_role_filter="wearer",
+        )
+
+    return ExtractOut(session_id=session_id, triples_stored=total)

@@ -33,6 +33,7 @@ class PersonOut(BaseModel):
     name: str
     created_at: datetime
     has_voice_embedding: bool = False
+    is_wearer: bool = False
 
 
 @router.post("", response_model=PersonOut, status_code=201)
@@ -41,6 +42,15 @@ async def create_person(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_session),
 ) -> PersonOut:
+    # Prevent accidental duplicate of the wearer's own Person node
+    if user.wearer_person_id:
+        wearer = await db.get(Person, user.wearer_person_id)
+        if wearer and wearer.name.lower() == body.name.strip().lower():
+            raise HTTPException(
+                status_code=409,
+                detail=f"A person named '{wearer.name}' already exists as the enrolled wearer. Use GET /people/{wearer.id} instead.",
+            )
+
     person = Person(user_id=user.id, name=body.name)
     db.add(person)
     await db.commit()
@@ -90,7 +100,11 @@ async def list_people(
             user_id=p.user_id,
             name=p.name,
             created_at=p.created_at,
-            has_voice_embedding=(p.id in enrolled_ids),
+            has_voice_embedding=(
+                p.id in enrolled_ids
+                or (p.id == user.wearer_person_id and user.voice_enrolled)
+            ),
+            is_wearer=(p.id == user.wearer_person_id),
         )
         for p in people
     ]
@@ -112,7 +126,11 @@ async def get_person(
         .where(VoiceEmbedding.embedding.is_not(None))
         .limit(1)
     )
-    has_emb = emb.scalar_one_or_none() is not None
+    has_emb = (
+        emb.scalar_one_or_none() is not None
+        or (person_id == user.wearer_person_id and user.voice_enrolled)
+    )
+    is_wearer = (person_id == user.wearer_person_id)
 
     return PersonOut(
         id=person.id,
@@ -120,6 +138,7 @@ async def get_person(
         name=person.name,
         created_at=person.created_at,
         has_voice_embedding=has_emb,
+        is_wearer=is_wearer,
     )
 
 
