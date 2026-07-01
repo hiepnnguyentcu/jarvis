@@ -46,8 +46,9 @@
             "url": "{{base_url}}/auth/register",
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"email\": \"test@example.com\",\n  \"password\": \"password123\"\n}"
-            }
+              "raw": "{\n  \"email\": \"hiep@example.com\",\n  \"password\": \"password123\",\n  \"first_name\": \"Hiep\",\n  \"last_name\": \"Nguyen\"\n}"
+            },
+            "description": "Creates account. first_name + last_name are used to name the wearer's Person record created at voice enrollment."
           }
         },
         {
@@ -70,7 +71,7 @@
             "url": "{{base_url}}/auth/login",
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"email\": \"test@example.com\",\n  \"password\": \"password123\"\n}"
+              "raw": "{\n  \"email\": \"hiep@example.com\",\n  \"password\": \"password123\"\n}"
             }
           }
         },
@@ -100,14 +101,56 @@
         },
         {
           "name": "Me",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "var json = pm.response.json();",
+                  "if (json.wearer_person_id) {",
+                  "  pm.collectionVariables.set('person_id', json.wearer_person_id);",
+                  "}"
+                ]
+              }
+            }
+          ],
           "request": {
             "method": "GET",
             "header": [{ "key": "Authorization", "value": "Bearer {{access_token}}" }],
-            "url": "{{base_url}}/auth/me"
+            "url": "{{base_url}}/auth/me",
+            "description": "Returns id, email, first_name, last_name, voice_enrolled, wearer_person_id. Auto-sets person_id variable to wearer_person_id if present."
+          }
+        },
+        {
+          "name": "Update Profile",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{access_token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": "{{base_url}}/auth/me",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"first_name\": \"Hiep\",\n  \"last_name\": \"Nguyen\"\n}"
+            },
+            "description": "Update first_name and/or last_name. Either field is optional."
           }
         },
         {
           "name": "Enroll Wearer Voice",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 204) {",
+                  "  console.log('Voice enrolled. Re-run GET /auth/me to get wearer_person_id.');",
+                  "}"
+                ]
+              }
+            }
+          ],
           "request": {
             "method": "POST",
             "header": [{ "key": "Authorization", "value": "Bearer {{access_token}}" }],
@@ -122,7 +165,8 @@
                   "description": "10-15s WAV, MP3 or M4A of the wearer speaking"
                 }
               ]
-            }
+            },
+            "description": "Stores voice embedding and auto-creates a Person record for the wearer (named from first_name + last_name). Sets voice_enrolled=true and wearer_person_id on the user."
           }
         },
         {
@@ -142,7 +186,7 @@
                 }
               ]
             },
-            "description": "Returns similarity score (0–1), threshold (0.88), and whether the recording is recognised as you."
+            "description": "Returns similarity (0–1), threshold (0.88), is_wearer bool, and verdict string. Use to verify your enrollment is working."
           }
         }
       ]
@@ -173,7 +217,8 @@
             "body": {
               "mode": "raw",
               "raw": "{\n  \"name\": \"Alice\"\n}"
-            }
+            },
+            "description": "Creates a contact. Also creates an AGE :Person vertex and an Entity node for them."
           }
         },
         {
@@ -205,10 +250,11 @@
                   "key": "audio",
                   "type": "file",
                   "src": "",
-                  "description": "10-15s WAV or MP3 of the person speaking"
+                  "description": "10-15s recording of the contact speaking"
                 }
               ]
-            }
+            },
+            "description": "Stores a voice embedding for this contact so they can be auto-identified in future sessions."
           }
         },
         {
@@ -216,7 +262,8 @@
           "request": {
             "method": "GET",
             "header": [{ "key": "Authorization", "value": "Bearer {{access_token}}" }],
-            "url": "{{base_url}}/people/{{person_id}}/graph"
+            "url": "{{base_url}}/people/{{person_id}}/graph",
+            "description": "Returns nodes (entities) and edges (SPO relationships) extracted from all sessions with this person."
           }
         },
         {
@@ -224,7 +271,8 @@
           "request": {
             "method": "GET",
             "header": [{ "key": "Authorization", "value": "Bearer {{access_token}}" }],
-            "url": "{{base_url}}/people/{{person_id}}/recap"
+            "url": "{{base_url}}/people/{{person_id}}/recap",
+            "description": "Calls Claude to generate a 2-3 sentence spoken briefing from the person's knowledge graph. Requires at least some extracted facts."
           }
         }
       ]
@@ -233,7 +281,34 @@
       "name": "Sessions",
       "item": [
         {
-          "name": "Create Session (with person)",
+          "name": "Create Session",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "var json = pm.response.json();",
+                  "pm.collectionVariables.set('session_id', json.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{access_token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": "{{base_url}}/sessions",
+            "body": {
+              "mode": "raw",
+              "raw": "{}"
+            },
+            "description": "Create a session. Optionally pass {\"person_id\": \"uuid\"} to pre-link a contact. Without person_id, identity is resolved automatically during streaming via voice match."
+          }
+        },
+        {
+          "name": "Create Session (pre-linked person)",
           "event": [
             {
               "listen": "test",
@@ -255,26 +330,8 @@
             "body": {
               "mode": "raw",
               "raw": "{\n  \"person_id\": \"{{person_id}}\"\n}"
-            }
-          }
-        },
-        {
-          "name": "Create Session (no person)",
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "exec": [
-                  "var json = pm.response.json();",
-                  "pm.collectionVariables.set('session_id', json.id);"
-                ]
-              }
-            }
-          ],
-          "request": {
-            "method": "POST",
-            "header": [{ "key": "Authorization", "value": "Bearer {{access_token}}" }],
-            "url": "{{base_url}}/sessions"
+            },
+            "description": "Pre-links a contact so extraction works immediately even if voice identity hasn't resolved yet."
           }
         },
         {
@@ -298,7 +355,8 @@
           "request": {
             "method": "GET",
             "header": [{ "key": "Authorization", "value": "Bearer {{access_token}}" }],
-            "url": "{{base_url}}/sessions/{{session_id}}/segments"
+            "url": "{{base_url}}/sessions/{{session_id}}/segments",
+            "description": "Returns all transcript segments with speaker_label, speaker_role (wearer/other/null), text, start_ms, end_ms."
           }
         },
         {
@@ -310,12 +368,12 @@
           }
         },
         {
-          "name": "Extract Graph",
+          "name": "Extract Knowledge Graph",
           "request": {
             "method": "POST",
             "header": [{ "key": "Authorization", "value": "Bearer {{access_token}}" }],
             "url": "{{base_url}}/sessions/{{session_id}}/extract",
-            "description": "Requires session to have a person_id. Idempotent."
+            "description": "Extracts SPO triples from session segments via Claude. Extracts wearer segments into the wearer's graph AND other-speaker segments into the contact's graph. Idempotent. Requires voice to be enrolled (wearer_person_id set) or session to have a person_id."
           }
         }
       ]
@@ -328,7 +386,7 @@
           "request": {
             "method": "GET",
             "url": "ws://localhost:8000/ws/stream/{{session_id}}?token={{access_token}}",
-            "description": "Connect via WebSocket client. Send raw PCM (16kHz 16-bit mono). Receives JSON segment messages and a final {\"type\":\"done\"}."
+            "description": "Connect via a WebSocket client (e.g. Postman WebSocket tab or wscat). Send raw PCM binary frames (16kHz, 16-bit, mono — 640 bytes = 20ms). Receives JSON: {\"type\":\"segment\", \"speaker\":\"A\", \"speaker_role\":\"wearer\"|\"other\"|null, \"text\":\"...\", \"start_ms\":0, \"end_ms\":1200} and a final {\"type\":\"done\"}."
           }
         }
       ]
