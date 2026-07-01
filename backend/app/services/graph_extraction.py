@@ -22,10 +22,12 @@ from app.models.graph import EntityEmbedding
 
 class Triple(BaseModel):
     subject: str
-    subject_type: str  # person | company | place | topic | event | misc
+    subject_type: str
+    subject_icon: str = "🔹"
     predicate: str
     object: str
     object_type: str
+    object_icon: str = "🔹"
     object_properties: dict = {}
     confidence: float
 
@@ -89,24 +91,46 @@ async def extract_triples(
 
     ctx = ", ".join(existing_context or []) or "none"
     prompt = (
-        f"You are extracting a knowledge graph from a conversation snippet.\n"
+        f"You are building a multi-hop knowledge graph from a conversation snippet.\n"
         f"Speaker: {speaker_name}\n"
         f'Text: "{text}"\n'
         f"Known entities for context: {ctx}\n\n"
-        "Extract every factual relationship as a subject-predicate-object triple.\n"
+        "Extract EVERY factual relationship as a subject-predicate-object triple.\n"
+        "This includes TWO kinds of triples — extract both:\n"
+        f"  1. Speaker-to-entity: facts about {speaker_name} (e.g. 'I work at Google' → ({speaker_name}, works_at, Google))\n"
+        "  2. Entity-to-entity: facts between non-speaker entities mentioned in the text\n"
+        "     e.g. 'I study at TCU in Fort Worth' → ALSO extract (TCU, located_in, Fort Worth)\n"
+        "     e.g. 'I love hiking, especially in national parks' → (hiking, takes_place_in, national parks)\n"
+        "     e.g. 'I have two dogs, they are golden retrievers' → (2 dogs, is_breed, golden retriever)\n\n"
         "Rules:\n"
-        "- Subject is always a named entity (person, company, place, topic, or event)\n"
-        "- Predicate is a short snake_case verb phrase: works_at, lives_in, knows, attended,\n"
-        "  is_building, studied_at, is_interested_in, used_to_work_at, is_friends_with,\n"
-        "  is_planning_to_move_to, visited, etc.\n"
-        "- Object is a named entity or a specific value\n"
-        "- Only extract explicit statements, not implications\n"
-        "- Normalize names to canonical form (e.g. 'Google' not 'Google Inc')\n"
+        "- Subject can be ANY named entity — it does NOT have to be the speaker\n"
+        "- Predicate: short snake_case verb phrase (works_at, lives_in, located_in, is_a, is_type,\n"
+        "  knows, attended, studied_at, is_interested_in, used_to_work_at, is_friends_with,\n"
+        "  is_part_of, founded, is_building, takes_place_in, is_breed, is_located_in, etc.)\n"
+        "- Object is a named entity or specific value\n"
+        "- Only extract explicit statements — not implications or guesses\n"
+        "- Normalize names to canonical form (e.g. 'TCU' → 'Texas Christian University')\n"
         "- confidence: 1.0=stated directly, 0.7=paraphrase, 0.5=implied\n"
-        "- subject_type/object_type: person | company | place | topic | event | misc\n\n"
+        "- subject_type/object_type — pick the most specific that fits:\n"
+        "    person     → individual human (Hiep, Professor Kim, Dario Amodei)\n"
+        "    company    → organisation, university, lab, institution (Google, TCU, OpenAI)\n"
+        "    place      → physical location (Fort Worth, California, Palo Duro Canyon)\n"
+        "    product    → software, hardware, app, device (ChatGPT, Jarvis, Meta Ray-Ban)\n"
+        "    role       → job title or academic role (research engineer, grad student, advisor)\n"
+        "    field      → academic discipline or profession (software engineering, AI research)\n"
+        "    activity   → hobby, sport, or recurring action (hiking, cooking, football)\n"
+        "    topic      → abstract concept or area of interest (AI safety, machine learning)\n"
+        "    event      → one-time occurrence (conference, graduation)\n"
+        "    animal     → pet or animal (dog, cat, golden retriever)\n"
+        "    misc       → only if nothing above fits\n"
+        "- subject_icon/object_icon: a single emoji that best represents THIS SPECIFIC entity.\n"
+        "  Go beyond the type — pick something visually distinctive for the entity itself.\n"
+        "  Examples: TCU→🏛️, OpenAI→🤖, hiking→🥾, Palo Duro Canyon→🏜️, PhD→🎓,\n"
+        "  Anthropic→🛡️, ChatGPT→💬, dog→🐕, cooking→🍳, football→🏈, glasses→👓\n\n"
         'Return JSON only: {"triples": [...]}\n'
-        "Each triple: {\"subject\": str, \"subject_type\": str, \"predicate\": str, "
-        "\"object\": str, \"object_type\": str, \"object_properties\": dict, \"confidence\": float}\n"
+        "Each triple: {\"subject\": str, \"subject_type\": str, \"subject_icon\": str, "
+        "\"predicate\": str, \"object\": str, \"object_type\": str, \"object_icon\": str, "
+        "\"object_properties\": dict, \"confidence\": float}\n"
         'If no facts found, return {"triples": []}'
     )
 
@@ -134,16 +158,15 @@ async def resolve_entity(
     entity_type: str,
     properties: dict,
     db: AsyncSession,
+    icon: str = "🔹",
 ) -> uuid.UUID:
     """
-    Find or create an entity by exact canonical_name match.
-    Claude normalizes names during extraction so exact match is sufficient.
-    Returns entity_embedding.id which is also stored as entity_id on the AGE vertex.
+    Find or create an entity by canonical_name. Matches on name alone so the same
+    real-world entity never gets two nodes due to a type disagreement between Claude calls.
     """
     result = await db.execute(
         select(EntityEmbedding)
         .where(EntityEmbedding.user_id == user_id)
-        .where(EntityEmbedding.entity_type == entity_type)
         .where(EntityEmbedding.canonical_name == canonical_name)
         .limit(1)
     )
@@ -164,10 +187,11 @@ async def resolve_entity(
     uid = str(user_id)
     name_safe = canonical_name.replace("'", "\\'")
     type_safe = entity_type.replace("'", "\\'")
+    icon_safe = icon.replace("'", "\\'")
     await cypher(
         db,
         f"CREATE (:Entity {{entity_id: '{eid}', canonical_name: '{name_safe}', "
-        f"entity_type: '{type_safe}', user_id: '{uid}'}})",
+        f"entity_type: '{type_safe}', icon: '{icon_safe}', user_id: '{uid}'}})",
     )
     return entity_id
 
@@ -181,26 +205,26 @@ async def store_triples(
     """Resolve entities and write SPO edges into the AGE jarvis_kg graph."""
     seen: dict[str, uuid.UUID] = {}
 
-    async def get_entity(name: str, etype: str, props: dict) -> uuid.UUID:
-        key = f"{etype}:{name.lower()}"
+    async def get_entity(name: str, etype: str, props: dict, icon: str) -> uuid.UUID:
+        key = name.lower()
         if key not in seen:
-            seen[key] = await resolve_entity(user_id, name, etype, props, db)
+            seen[key] = await resolve_entity(user_id, name, etype, props, db, icon)
         return seen[key]
 
     sess_str = str(session_id)
     for triple in triples[:settings.fact_max_per_session]:
-        from_id = await get_entity(triple.subject, triple.subject_type, {})
-        to_id = await get_entity(triple.object, triple.object_type, triple.object_properties)
+        from_id = await get_entity(triple.subject, triple.subject_type, {}, triple.subject_icon)
+        to_id = await get_entity(triple.object, triple.object_type, triple.object_properties, triple.object_icon)
 
         fid, tid = str(from_id), str(to_id)
         pred = triple.predicate.replace("'", "\\'")
         conf = triple.confidence
 
-        # Check for existing edge to avoid duplicates on re-extraction
+        # Dedup: skip if ANY edge already exists between these two nodes
         existing = (await cypher_multi(
             db,
             f"MATCH (a:Entity {{entity_id: '{fid}'}})"
-            f"-[r:SPO {{predicate: '{pred}'}}]->"
+            f"-[r:SPO]->"
             f"(b:Entity {{entity_id: '{tid}'}}) RETURN r",
             ["r"],
         )).fetchone()
@@ -216,14 +240,38 @@ async def store_triples(
     await db.commit()
 
 
+_MIN_WORDS = 8
+_VAGUE_OBJECTS = {"unknown", "something", "something (unspecified)", "advisor", "unspecified", ""}
+
+
+def _is_useful(triple: Triple) -> bool:
+    """Filter out junk triples before storing."""
+    subj = triple.subject.strip().lower()
+    obj  = triple.object.strip().lower()
+    # Self-referential
+    if subj == obj:
+        return False
+    # Vague / placeholder objects
+    if obj in _VAGUE_OBJECTS or len(obj) < 2:
+        return False
+    # Very low confidence
+    if triple.confidence < 0.55:
+        return False
+    # Redundant identity facts
+    if triple.predicate in {"has_name", "is_called", "is_named"}:
+        return False
+    return True
+
+
 async def extract_and_store_for_session(
     session_id: uuid.UUID,
     person_id: uuid.UUID,
     user_id: uuid.UUID,
     db: AsyncSession,
+    speaker_role_filter: str = "other",
 ) -> int:
     """
-    Run graph extraction for all segments in a session.
+    Run graph extraction for segments matching speaker_role_filter.
     Returns total number of triples stored.
     """
     from app.models.person import Person
@@ -233,34 +281,53 @@ async def extract_and_store_for_session(
     if not person:
         return 0
 
-    # Ensure the person has an Entity node in the graph
     await resolve_entity(user_id, person.name, "person", {}, db)
     await db.commit()
 
     result = await db.execute(
-        select(Segment).where(Segment.session_id == session_id)
+        select(Segment)
+        .where(Segment.session_id == session_id)
+        .where(Segment.speaker_role == speaker_role_filter)
+        .order_by(Segment.start_ms)
     )
     segments = result.scalars().all()
 
     total = 0
     existing_context: list[str] = []
+    pending = ""
 
     for seg in segments:
-        # Attribute the utterance to the person when they're the other speaker
-        if seg.speaker_role == "other" or seg.speaker_label == "B":
-            speaker_name = person.name
-        else:
-            speaker_name = "Wearer"
+        text = (seg.text or "").strip()
+        if not text:
+            continue
 
-        triples = await extract_triples(seg.text, speaker_name, existing_context)
-        if triples:
-            await store_triples(session_id, user_id, triples, db)
-            total += len(triples)
+        # Accumulate short/partial segments into the next one
+        words = text.split()
+        if len(words) < _MIN_WORDS:
+            pending = (pending + " " + text).strip()
+            continue
+
+        full_text = (pending + " " + text).strip() if pending else text
+        pending = ""
+
+        triples = await extract_triples(full_text, person.name, existing_context)
+        useful  = [t for t in triples if _is_useful(t)]
+        if useful:
+            await store_triples(session_id, user_id, useful, db)
+            total += len(useful)
             existing_context = list({
                 *existing_context,
-                *(t.subject for t in triples),
-                *(t.object for t in triples),
+                *(t.subject for t in useful),
+                *(t.object for t in useful),
             })[:20]
+
+    # Flush any leftover pending text
+    if pending and len(pending.split()) >= 4:
+        triples = await extract_triples(pending, person.name, existing_context)
+        useful  = [t for t in triples if _is_useful(t)]
+        if useful:
+            await store_triples(session_id, user_id, useful, db)
+            total += len(useful)
 
     return total
 
@@ -269,15 +336,18 @@ async def get_person_graph(
     person_id: uuid.UUID,
     user_id: uuid.UUID,
     db: AsyncSession,
+    max_hops: int = 4,
 ) -> dict:
-    """Return entity node + 1-hop relationships for a person."""
+    """
+    Return the full entity graph reachable from a person node up to max_hops deep.
+    Performs BFS hop-by-hop so depth is bounded and cycles are handled.
+    """
     from app.models.person import Person
 
     person = await db.get(Person, person_id)
     if not person:
         return {"person_id": str(person_id), "nodes": [], "edges": []}
 
-    # Locate person's entity node by canonical_name + type
     result = await db.execute(
         select(EntityEmbedding)
         .where(EntityEmbedding.user_id == user_id)
@@ -289,43 +359,68 @@ async def get_person_graph(
     if not person_entity:
         return {"person_id": str(person_id), "name": person.name, "nodes": [], "edges": []}
 
-    eid = str(person_entity.id)
+    root_eid = str(person_entity.id)
     uid = str(user_id)
 
+    # Fetch root node icon from AGE
     try:
-        rows = (await cypher_multi(
+        root_row = (await cypher_multi(
             db,
-            f"MATCH (a:Entity {{entity_id: '{eid}', user_id: '{uid}'}})"
-            f"-[r:SPO]->(b:Entity) "
-            f"RETURN r.predicate, b.canonical_name, b.entity_type, b.entity_id, r.confidence",
-            ["predicate", "to_name", "to_type", "to_entity_id", "confidence"],
-        )).fetchall()
+            f"MATCH (e:Entity {{entity_id: '{root_eid}'}}) RETURN e.icon",
+            ["icon"],
+        )).fetchone()
+        root_icon = str(root_row[0]).strip('"') if root_row and root_row[0] else "👤"
     except Exception:
-        rows = []
+        root_icon = "👤"
 
-    nodes = [{"id": eid, "name": person.name, "type": "person"}]
-    nodes_seen: set[str] = {eid}
+    nodes: list[dict] = [{"id": root_eid, "name": person.name, "type": "person", "icon": root_icon, "depth": 0}]
+    nodes_seen: set[str] = {root_eid}
     edges: list[dict] = []
 
-    for row in rows:
-        pred = str(row[0]).strip('"')
-        to_name = str(row[1]).strip('"')
-        to_type = str(row[2]).strip('"')
-        to_eid = str(row[3]).strip('"')
+    frontier: list[str] = [root_eid]
+
+    for _hop in range(max_hops):
+        if not frontier:
+            break
+
+        id_list = ", ".join(f"'{fid}'" for fid in frontier)
         try:
-            conf = float(str(row[4]).strip('"'))
-        except (ValueError, TypeError):
-            conf = 0.0
+            rows = (await cypher_multi(
+                db,
+                f"MATCH (a:Entity)-[r:SPO]->(b:Entity) "
+                f"WHERE a.entity_id IN [{id_list}] AND a.user_id = '{uid}' "
+                f"RETURN a.entity_id, r.predicate, b.canonical_name, b.entity_type, b.entity_id, r.confidence, b.icon",
+                ["from_eid", "predicate", "to_name", "to_type", "to_eid", "confidence", "to_icon"],
+            )).fetchall()
+        except Exception:
+            rows = []
 
-        if to_eid not in nodes_seen:
-            nodes.append({"id": to_eid, "name": to_name, "type": to_type})
-            nodes_seen.add(to_eid)
+        next_frontier: list[str] = []
+        for row in rows:
+            from_eid = str(row[0]).strip('"')
+            pred     = str(row[1]).strip('"')
+            to_name  = str(row[2]).strip('"')
+            to_type  = str(row[3]).strip('"')
+            to_eid   = str(row[4]).strip('"')
+            to_icon  = str(row[6]).strip('"') if row[6] and str(row[6]) != "null" else "🔹"
+            try:
+                conf = float(str(row[5]).strip('"'))
+            except (ValueError, TypeError):
+                conf = 0.0
 
-        edges.append({"from": eid, "predicate": pred, "to": to_eid, "confidence": conf})
+            if to_eid not in nodes_seen:
+                nodes.append({"id": to_eid, "name": to_name, "type": to_type, "icon": to_icon, "depth": _hop + 1})
+                nodes_seen.add(to_eid)
+                next_frontier.append(to_eid)
+
+            edges.append({"from": from_eid, "predicate": pred, "to": to_eid, "confidence": conf})
+
+        frontier = next_frontier
 
     return {
         "person_id": str(person_id),
         "name": person.name,
         "nodes": nodes,
         "edges": edges,
+        "max_depth": max(n["depth"] for n in nodes) if nodes else 0,
     }
