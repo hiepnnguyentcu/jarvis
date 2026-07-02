@@ -2,7 +2,7 @@ import uuid
 from datetime import datetime
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile
 from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -77,12 +77,14 @@ async def create_person(
 
 @router.get("", response_model=list[PersonOut])
 async def list_people(
+    search: Optional[str] = Query(default=None),
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_session),
 ) -> list[PersonOut]:
-    result = await db.execute(
-        select(Person).where(Person.user_id == user.id).order_by(Person.created_at.desc())
-    )
+    query = select(Person).where(Person.user_id == user.id)
+    if search:
+        query = query.where(Person.name.ilike(f"%{search}%"))
+    result = await db.execute(query.order_by(Person.created_at.desc()))
     people = result.scalars().all()
 
     # Fetch which people have embeddings

@@ -2,12 +2,12 @@ import uuid
 from datetime import datetime, timezone
 from typing import Optional
 
-from fastapi import APIRouter, Body, Depends, HTTPException
+from fastapi import APIRouter, BackgroundTasks, Body, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.db import get_session as _db_session
+from app.db import AsyncSessionLocal, get_session as _db_session
 from app.dependencies import get_current_user
 from app.models.person import Person
 from app.models.session import Segment, Session
@@ -106,9 +106,36 @@ async def list_segments(
     return [SegmentOut.model_validate(s, from_attributes=True) for s in result.scalars()]
 
 
+async def _auto_extract(session_id: uuid.UUID, user_id: uuid.UUID) -> None:
+    from app.services.graph_extraction import extract_and_store_for_session
+
+    async with AsyncSessionLocal() as db:
+        sess = await db.get(Session, session_id)
+        user = await db.get(User, user_id)
+        if not sess or not user:
+            return
+        if sess.person_id:
+            await extract_and_store_for_session(
+                session_id=session_id,
+                person_id=sess.person_id,
+                user_id=user_id,
+                db=db,
+                speaker_role_filter="other",
+            )
+        if user.wearer_person_id:
+            await extract_and_store_for_session(
+                session_id=session_id,
+                person_id=user.wearer_person_id,
+                user_id=user_id,
+                db=db,
+                speaker_role_filter="wearer",
+            )
+
+
 @router.post("/{session_id}/end", response_model=SessionOut)
 async def end_session(
     session_id: uuid.UUID,
+    background_tasks: BackgroundTasks,
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(_db_session),
 ) -> SessionOut:
@@ -119,6 +146,7 @@ async def end_session(
         sess.ended_at = datetime.now(timezone.utc).replace(tzinfo=None)
         await db.commit()
         await db.refresh(sess)
+        background_tasks.add_task(_auto_extract, session_id, user.id)
     return SessionOut.model_validate(sess, from_attributes=True)
 
 
