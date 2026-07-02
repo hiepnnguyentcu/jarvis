@@ -62,6 +62,7 @@ class UserResponse(BaseModel):
     first_name: str
     last_name: str
     voice_enrolled: bool
+    is_admin: bool
     wearer_person_id: Optional[uuid.UUID]
     created_at: datetime
 
@@ -141,6 +142,7 @@ async def update_me(
         first_name=user.first_name,
         last_name=user.last_name,
         voice_enrolled=user.voice_enrolled,
+        is_admin=user.is_admin,
         wearer_person_id=user.wearer_person_id,
         created_at=user.created_at,
     )
@@ -154,6 +156,7 @@ async def me(user: User = Depends(get_current_user)):
         first_name=user.first_name,
         last_name=user.last_name,
         voice_enrolled=user.voice_enrolled,
+        is_admin=user.is_admin,
         wearer_person_id=user.wearer_person_id,
         created_at=user.created_at,
     )

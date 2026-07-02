@@ -15,6 +15,7 @@ class User(SQLModel, table=True):
     last_name: str = Field(default="")
     created_at: datetime = Field(default_factory=datetime.utcnow)
     voice_enrolled: bool = Field(default=False)
+    is_admin: bool = Field(default=False)
     wearer_person_id: Optional[uuid.UUID] = Field(default=None, foreign_key="person.id")
 
 
