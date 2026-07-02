@@ -17,8 +17,10 @@ struct JarvisApp: App {
         if appState.isAuthenticated {
             if appState.voiceEnrolled {
                 TabView {
-                    HomeView()
-                        .tabItem { Label("Stream", systemImage: "mic.fill") }
+                    if appState.user?.isAdmin == true {
+                        HomeView()
+                            .tabItem { Label("Stream", systemImage: "mic.fill") }
+                    }
                     PeopleListView()
                         .tabItem { Label("People", systemImage: "person.2.fill") }
                 }
