@@ -18,6 +18,7 @@ struct UserOut: Codable {
     let firstName: String
     let lastName: String
     let voiceEnrolled: Bool
+    let isAdmin: Bool
     let wearerPersonId: UUID?
     let createdAt: String
 
@@ -31,6 +32,7 @@ struct UserOut: Codable {
         case firstName = "first_name"
         case lastName = "last_name"
         case voiceEnrolled = "voice_enrolled"
+        case isAdmin = "is_admin"
         case wearerPersonId = "wearer_person_id"
         case createdAt = "created_at"
     }

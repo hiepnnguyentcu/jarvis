@@ -4,10 +4,14 @@ class SessionService {
     static let shared = SessionService()
     private init() {}
 
-    func createSession() async throws -> SessionOut {
+    func createSession(personId: UUID? = nil) async throws -> SessionOut {
         var req = try authedRequest(path: "/sessions", method: "POST")
         req.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        req.httpBody = "{}".data(using: .utf8)
+        if let personId {
+            req.httpBody = try JSONEncoder().encode(["person_id": personId.uuidString])
+        } else {
+            req.httpBody = "{}".data(using: .utf8)
+        }
         let (data, _) = try await URLSession.shared.data(for: req)
         return try JSONDecoder().decode(SessionOut.self, from: data)
     }
