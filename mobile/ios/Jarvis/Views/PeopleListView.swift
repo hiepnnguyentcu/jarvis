@@ -1,6 +1,7 @@
 import SwiftUI
 
 struct PeopleListView: View {
+    @EnvironmentObject var appState: AppState
     @State private var people: [PersonOut] = []
     @State private var isLoading = false
     @State private var error: String?
@@ -30,6 +31,16 @@ struct PeopleListView: View {
                         NavigationLink(destination: PersonDetailView(person: person)) {
                             PersonRow(person: person)
                         }
+                        .swipeActions(edge: .leading) {
+                            if !person.isWearer {
+                                Button {
+                                    Task { await appState.startSession(for: person.name) }
+                                } label: {
+                                    Label("Start Session", systemImage: "mic.fill")
+                                }
+                                .tint(.green)
+                            }
+                        }
                     }
                     .listStyle(.insetGrouped)
                 }
@@ -50,7 +61,8 @@ struct PeopleListView: View {
     private func load() async {
         isLoading = true
         do {
-            people = try await PeopleService.shared.listPeople()
+            let fetched = try await PeopleService.shared.listPeople()
+            people = fetched.sorted { $0.isWearer && !$1.isWearer }
         } catch {
             self.error = error.localizedDescription
         }
