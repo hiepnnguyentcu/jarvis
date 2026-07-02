@@ -19,6 +19,9 @@
 		809AF783777AC2C3CEA19FDA /* PersonDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01DDD39EF1C403BF7A3AE0E0 /* PersonDetailView.swift */; };
 		86915DE682BA6FF734F004D1 /* PeopleService.swift in Sources */ = {isa = PBXBuildFile; fileRef = B07C9DFD5F5F48C17E6671A2 /* PeopleService.swift */; };
 		9307CFFE1008CD11AA5D18A6 /* Config.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3B6A2C4B9F477DC467B9E59F /* Config.swift */; };
+		A1B2C3D4E5F60001A1B2C3D4 /* AudioEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F60011A1B2C3D4 /* AudioEngine.swift */; };
+		A1B2C3D4E5F60002A1B2C3D4 /* VoiceCommandService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F60012A1B2C3D4 /* VoiceCommandService.swift */; };
+		A1B2C3D4E5F60003A1B2C3D4 /* RecapPlayerService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F60013A1B2C3D4 /* RecapPlayerService.swift */; };
 		B0CB72F4FC007800AEA810C7 /* LoginView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 89B53FBDFD05A1963396025D /* LoginView.swift */; };
 		BC18F50363A6B4426DDAB24B /* AppState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9EC71D5D4946EF4BDC8E0D9C /* AppState.swift */; };
 		C4F60682EF9058916A65813B /* GraphCanvasView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 09D4FDA3C6F4211B1651AAF1 /* GraphCanvasView.swift */; };
@@ -36,17 +39,37 @@
 		8B5ACB64F9DCF77C63DD4137 /* APIModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = APIModels.swift; sourceTree = "<group>"; };
 		95AE383DD0E066280923B32C /* KeychainHelper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeychainHelper.swift; sourceTree = "<group>"; };
 		9EC71D5D4946EF4BDC8E0D9C /* AppState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppState.swift; sourceTree = "<group>"; };
+		A1B2C3D4E5F60011A1B2C3D4 /* AudioEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioEngine.swift; sourceTree = "<group>"; };
+		A1B2C3D4E5F60012A1B2C3D4 /* VoiceCommandService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoiceCommandService.swift; sourceTree = "<group>"; };
+		A1B2C3D4E5F60013A1B2C3D4 /* RecapPlayerService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecapPlayerService.swift; sourceTree = "<group>"; };
 		B07C9DFD5F5F48C17E6671A2 /* PeopleService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PeopleService.swift; sourceTree = "<group>"; };
 		B4E0136C9C7B590924281563 /* HomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeView.swift; sourceTree = "<group>"; };
 		CE39BC6CF641C757073BD312 /* AuthService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthService.swift; sourceTree = "<group>"; };
 		D758DDA5F42A49B6CB275DED /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		DF71D2323BBD900D3027E718 /* EnrollmentOnboardingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EnrollmentOnboardingView.swift; sourceTree = "<group>"; };
 		E6DB9A16EC5B4893ED5B6AF0 /* AudioBridgeService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioBridgeService.swift; sourceTree = "<group>"; };
-		F2EA89B09E63D9954B6EA5A4 /* Jarvis.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = Jarvis.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		F2EA89B09E63D9954B6EA5A4 /* Jarvis.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Jarvis.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		F82B5B950AB1E8797CCDB5F3 /* JarvisApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JarvisApp.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
+/* Begin PBXFrameworksBuildPhase section */
+		2DF946DA2FF65F7700CE662D /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
 /* Begin PBXGroup section */
+		2DF946DB2FF65F8900CE662D /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
 		7370B301BC3824D8E135198C /* Products */ = {
 			isa = PBXGroup;
 			children = (
@@ -75,6 +98,9 @@
 		A186AF3A5D7731D0FD3A0A63 /* Services */ = {
 			isa = PBXGroup;
 			children = (
+				A1B2C3D4E5F60011A1B2C3D4 /* AudioEngine.swift */,
+				A1B2C3D4E5F60012A1B2C3D4 /* VoiceCommandService.swift */,
+				A1B2C3D4E5F60013A1B2C3D4 /* RecapPlayerService.swift */,
 				E6DB9A16EC5B4893ED5B6AF0 /* AudioBridgeService.swift */,
 				CE39BC6CF641C757073BD312 /* AuthService.swift */,
 				B07C9DFD5F5F48C17E6671A2 /* PeopleService.swift */,
@@ -96,6 +122,7 @@
 			isa = PBXGroup;
 			children = (
 				FC737B8F8A91C66ADA6702EE /* Jarvis */,
+				2DF946DB2FF65F8900CE662D /* Frameworks */,
 				7370B301BC3824D8E135198C /* Products */,
 			);
 			sourceTree = "<group>";
@@ -135,14 +162,13 @@
 			buildConfigurationList = B6D5E915E8E9BDF0BF748745 /* Build configuration list for PBXNativeTarget "Jarvis" */;
 			buildPhases = (
 				E0992BE4761F337F2AC5BF62 /* Sources */,
+				2DF946DA2FF65F7700CE662D /* Frameworks */,
 			);
 			buildRules = (
 			);
 			dependencies = (
 			);
 			name = Jarvis;
-			packageProductDependencies = (
-			);
 			productName = Jarvis;
 			productReference = F2EA89B09E63D9954B6EA5A4 /* Jarvis.app */;
 			productType = "com.apple.product-type.application";
@@ -155,11 +181,6 @@
 			attributes = {
 				BuildIndependentTargetsInParallel = YES;
 				LastUpgradeCheck = 1620;
-				TargetAttributes = {
-					461D90920FCD8CAF83348871 = {
-						DevelopmentTeam = "";
-					};
-				};
 			};
 			buildConfigurationList = 5FF39917AC552CB1A0BD9FBA /* Build configuration list for PBXProject "Jarvis" */;
 			developmentRegion = en;
@@ -187,6 +208,9 @@
 			files = (
 				2B9ABEDB2C3554FB421718B7 /* APIModels.swift in Sources */,
 				BC18F50363A6B4426DDAB24B /* AppState.swift in Sources */,
+				A1B2C3D4E5F60001A1B2C3D4 /* AudioEngine.swift in Sources */,
+				A1B2C3D4E5F60002A1B2C3D4 /* VoiceCommandService.swift in Sources */,
+				A1B2C3D4E5F60003A1B2C3D4 /* RecapPlayerService.swift in Sources */,
 				207EF992B96B401F7D5FB6B1 /* AudioBridgeService.swift in Sources */,
 				48C1253995AC96F5AF56887D /* AuthService.swift in Sources */,
 				9307CFFE1008CD11AA5D18A6 /* Config.swift in Sources */,
@@ -212,13 +236,13 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
-				DEVELOPMENT_TEAM = "";
+				DEVELOPMENT_TEAM = X6SMS8BWNP;
 				INFOPLIST_FILE = Jarvis/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = com.jarvis.app;
+				PRODUCT_BUNDLE_IDENTIFIER = com.github.hiepnnguyentcu.jarvis;
 				SDKROOT = iphoneos;
 				SWIFT_VERSION = 5.9;
 				TARGETED_DEVICE_FAMILY = "1,2";
@@ -293,13 +317,13 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
-				DEVELOPMENT_TEAM = "";
+				DEVELOPMENT_TEAM = X6SMS8BWNP;
 				INFOPLIST_FILE = Jarvis/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = com.jarvis.app;
+				PRODUCT_BUNDLE_IDENTIFIER = com.github.hiepnnguyentcu.jarvis;
 				SDKROOT = iphoneos;
 				SWIFT_VERSION = 5.9;
 				TARGETED_DEVICE_FAMILY = "1,2";

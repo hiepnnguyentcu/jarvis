@@ -1,5 +1,10 @@
-import Foundation
 import AVFoundation
+import Foundation
+
+enum AudioSource {
+    case phoneMic
+    case glassesMic(String)
+}
 
 @MainActor
 class AudioBridgeService: ObservableObject {
@@ -7,12 +12,13 @@ class AudioBridgeService: ObservableObject {
 
     @Published var segments: [WSSegment] = []
     @Published var hasUnknownSpeaker = false
+    @Published private(set) var audioSource: AudioSource = .phoneMic
 
-    private var engine = AVAudioEngine()
     private var converter: AVAudioConverter?
     private var webSocketTask: URLSessionWebSocketTask?
     private var enrollmentRecorder: AVAudioRecorder?
     private var enrollmentURL: URL?
+    private var routeChangeObserver: NSObjectProtocol?
 
     private let targetFormat = AVAudioFormat(
         commonFormat: .pcmFormatInt16,
@@ -31,32 +37,48 @@ class AudioBridgeService: ObservableObject {
         let granted = await AVAudioApplication.requestRecordPermission()
         guard granted else { throw StreamError.micPermissionDenied }
 
-        let session = AVAudioSession.sharedInstance()
-        try session.setCategory(.playAndRecord, mode: .default, options: [.allowBluetooth, .defaultToSpeaker])
-        try session.setActive(true)
+        // AVAudioSession is configured by AudioEngine.startEngine().
+        // We just need to prefer the Bluetooth input once the session is active.
+        let avSession = AVAudioSession.sharedInstance()
+        preferBluetoothInput(avSession)
+
+        routeChangeObserver = NotificationCenter.default.addObserver(
+            forName: AVAudioSession.routeChangeNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] notification in
+            let reason = notification.userInfo?[AVAudioSessionRouteChangeReasonKey] as? UInt
+            Task { @MainActor [weak self] in
+                self?.handleRouteChange(avSession: avSession, reason: reason)
+            }
+        }
 
         let wsURL = URL(string: "\(Config.wsBaseURL)/ws/stream/\(sessionId)?token=\(token)")!
         webSocketTask = URLSession.shared.webSocketTask(with: wsURL)
         webSocketTask?.resume()
 
-        let inputNode = engine.inputNode
-        let inputFormat = inputNode.outputFormat(forBus: 0)
-        converter = AVAudioConverter(from: inputFormat, to: targetFormat)
+        // Build converter from engine input format
+        let engineFormat = AudioEngine.shared.inputFormat
+        converter = AVAudioConverter(from: engineFormat, to: targetFormat)
 
-        inputNode.installTap(onBus: 0, bufferSize: 4096, format: inputFormat) { [weak self] buffer, _ in
+        try await AudioEngine.shared.addConsumer(id: "websocket") { [weak self] buffer in
             self?.sendBuffer(buffer)
         }
 
-        try engine.start()
         receiveLoop()
     }
 
     func stopStreaming() {
-        engine.inputNode.removeTap(onBus: 0)
-        engine.stop()
+        AudioEngine.shared.removeConsumer(id: "websocket")
         webSocketTask?.cancel(with: .goingAway, reason: nil)
         webSocketTask = nil
-        try? AVAudioSession.sharedInstance().setActive(false)
+        if let obs = routeChangeObserver {
+            NotificationCenter.default.removeObserver(obs)
+            routeChangeObserver = nil
+        }
+        audioSource = .phoneMic
+        // Do NOT deactivate AVAudioSession here — VoiceCommandService may
+        // still have the engine running for command detection.
     }
 
     func reset() {
@@ -64,28 +86,48 @@ class AudioBridgeService: ObservableObject {
         hasUnknownSpeaker = false
     }
 
-    // MARK: - Audio tap → WebSocket
+    // MARK: - Bluetooth input selection
+
+    private func preferBluetoothInput(_ avSession: AVAudioSession) {
+        guard let inputs = avSession.availableInputs else { return }
+        let bluetooth = inputs.first(where: { $0.portType == .bluetoothHFP })
+        if let bt = bluetooth {
+            try? avSession.setPreferredInput(bt)
+            audioSource = .glassesMic(bt.portName)
+            print("[Audio] using glasses mic: \(bt.portName)")
+        } else {
+            audioSource = .phoneMic
+            print("[Audio] no Bluetooth HFP input found — using phone mic")
+        }
+    }
+
+    private func handleRouteChange(avSession: AVAudioSession, reason: UInt?) {
+        let reasonValue = reason.flatMap { AVAudioSession.RouteChangeReason(rawValue: $0) }
+        switch reasonValue {
+        case .newDeviceAvailable:
+            preferBluetoothInput(avSession)
+        case .oldDeviceUnavailable:
+            audioSource = .phoneMic
+            print("[Audio] Bluetooth disconnected — fell back to phone mic")
+        default:
+            preferBluetoothInput(avSession)
+        }
+    }
+
+    // MARK: - Buffer → WebSocket
 
     private func sendBuffer(_ buffer: AVAudioPCMBuffer) {
-        guard let converter = converter else { return }
-        let chunkFrames = AVAudioFrameCount(targetFormat.sampleRate * 0.02) // 20ms
+        guard let converter else { return }
+        let chunkFrames = AVAudioFrameCount(targetFormat.sampleRate * 0.02)
         guard let out = AVAudioPCMBuffer(pcmFormat: targetFormat, frameCapacity: chunkFrames) else { return }
-
         var error: NSError?
         var consumed = false
         converter.convert(to: out, error: &error) { _, status in
-            if !consumed {
-                consumed = true
-                status.pointee = .haveData
-                return buffer
-            }
-            status.pointee = .noDataNow
-            return nil
+            if !consumed { consumed = true; status.pointee = .haveData; return buffer }
+            status.pointee = .noDataNow; return nil
         }
-
         guard error == nil, out.frameLength > 0, let channel = out.int16ChannelData else { return }
-        let byteCount = Int(out.frameLength) * 2
-        let data = Data(bytes: channel[0], count: byteCount)
+        let data = Data(bytes: channel[0], count: Int(out.frameLength) * 2)
         webSocketTask?.send(.data(data)) { _ in }
     }
 
@@ -101,14 +143,12 @@ class AudioBridgeService: ObservableObject {
                     Task { @MainActor in
                         if seg.type == "segment" {
                             self.segments.append(seg)
-                            if seg.speakerRole == nil {
-                                self.hasUnknownSpeaker = true
-                            }
+                            if seg.speakerRole == nil { self.hasUnknownSpeaker = true }
                         }
                     }
                 }
                 Task { @MainActor in self.receiveLoop() }
-            case .success(.data(_)):
+            case .success(.data):
                 Task { @MainActor in self.receiveLoop() }
             case .failure:
                 break
