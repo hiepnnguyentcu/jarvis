@@ -48,12 +48,12 @@ The whole experience is hands-free. Say *"Hey Jarvis, I'm about to meet Sarah"* 
     </td>
     <td align="center" width="25%">
       <img src="demo/contact-list.PNG" width="200" alt="People — voice-enrolled contacts"/><br/>
-      <sub><b>People</b> — contacts with voice identity</sub>
+      <sub><b>People</b> — contacts, voice identity</sub>
     </td>
     <td align="center" width="25%">
       <!-- 🖼 MISSING: graph static screenshot -->
       <img src="demo/knowledge-graph.gif" width="200" alt="Knowledge graph canvas"/><br/>
-      <sub><b>Graph</b> — depth-ring layout, tap to explore</sub>
+      <sub><b>Graph</b> — ring layout, tap to explore</sub>
     </td>
     <td align="center" width="25%">
       <!-- 🖼 MISSING: glasses display screenshot -->
@@ -66,9 +66,9 @@ The whole experience is hands-free. Say *"Hey Jarvis, I'm about to meet Sarah"* 
 
 <br/>
 
-<img width="45%" src="demo/recap.gif" alt="Recap — voice command triggers spoken briefing"/>
+<img width="20%" src="demo/recap.gif" alt="Recap — voice command triggers spoken briefing"/>
 &nbsp;&nbsp;
-<img width="45%" src="demo/knowledge-graph.gif" alt="Knowledge graph — explore entity nodes and edges"/>
+<img width="20%" src="demo/knowledge-graph.gif" alt="Knowledge graph — explore entity nodes and edges"/>
 
 <p>
   <sub>Left: say "Hey Jarvis, meet Sarah" → recap spoken before the conversation starts</sub><br/>
