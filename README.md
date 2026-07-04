@@ -53,7 +53,7 @@ The whole experience is hands-free. Say *"Hey Jarvis, I'm about to meet Sarah"* 
     <td align="center" width="25%">
       <!-- 🖼 MISSING: graph static screenshot -->
       <img src="demo/knowledge-graph.gif" width="200" alt="Knowledge graph canvas"/><br/>
-      <sub><b>Graph</b> — ring layout, tap to explore</sub>
+      <sub><b>Graph</b> — depth-ring layout, tap to explore</sub>
     </td>
     <td align="center" width="25%">
       <!-- 🖼 MISSING: glasses display screenshot -->
