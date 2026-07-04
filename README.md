@@ -42,20 +42,20 @@ The whole experience is hands-free. Say *"Hey Jarvis, I'm about to meet Sarah"* 
 
 <table>
   <tr>
-    <td align="center" height="420" width="25%">
+    <td align="center" width="25%">
       <img src="demo/record.PNG" width="200" alt="Idle — listening for voice command"/><br/>
       <sub><b>Idle</b> — listening for "Hey Jarvis"</sub>
     </td>
-    <td align="center" height="420" width="25%">
+    <td align="center" width="25%">
       <img src="demo/contact-list.PNG" width="200" alt="People — voice-enrolled contacts"/><br/>
       <sub><b>People</b> — contacts, voice identity</sub>
     </td>
-    <td align="center" height="420" width="25%">
+    <td align="center" width="25%">
       <!-- 🖼 MISSING: graph static screenshot -->
       <img src="demo/knowledge-graph.gif" width="200" alt="Knowledge graph canvas"/><br/>
       <sub><b>Graph</b> — depth-ring layout, tap to explore</sub>
     </td>
-    <td align="center" height="420" width="25%">
+    <td align="center" width="25%">
       <!-- 🖼 MISSING: glasses display screenshot -->
       <br/><br/><br/>
       <sub><b>Glasses</b> — coming soon (Meta DAT SDK)</sub>
